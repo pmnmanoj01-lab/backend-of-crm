@@ -11,22 +11,32 @@ import authRoute from './routes/authRoute.js';
 const app = express();
 
 
-// Middleware
+
+
 const allowedOrigins = [
     "*",
+    "https://crm-six-blond.vercel.app/",  // Production
     "http://localhost:5173",
-    "http://localhost:3000",
-    "https://crm-six-blond.vercel.app/"
+    "http://localhost:3000",              // Local dev
 ];
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.log("❌ CORS Blocked:", origin);
-            callback(new Error("Not allowed by CORS"));
+        // Allow requests with no origin (mobile apps / Postman / server-to-server)
+        if (!origin) return callback(null, true);
+
+        // Allow Vercel preview deployments (*.vercel.app)
+        if (origin.includes(".vercel.app")) {
+            return callback(null, true);
         }
+
+        // Allow only the specified origins
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        console.log("❌ CORS Blocked:", origin);
+        return callback(new Error("Not allowed by CORS"));
     },
     credentials: true
 }));
@@ -40,9 +50,9 @@ connectDB();
 
 // Routes
 app.use('/admin', adminRoute);
-app.use("/auth",authRoute)
-app.get("/test",(_,res)=>{
- res.send("server is running on port 5000")
+app.use("/auth", authRoute)
+app.get("/test", (_, res) => {
+    res.send("server is running on port 5000")
 })
 
 
