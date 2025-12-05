@@ -25,11 +25,12 @@ const login = async (req, res, next) => {
 
         // 4️⃣ Set token in cookies
         res.cookie("token", token, {
-            httpOnly: true,       // 🔒 cannot be accessed by JS
-            secure: process.env.NODE_ENV === "production", // use HTTPS in prod
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+            httpOnly: true,
+            secure: true,
+            sameSite: "none",
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
+
 
         // 5️⃣ Response
         res.status(200).json({
