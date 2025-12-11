@@ -4,7 +4,7 @@ import { authMiddleware } from "../middlewares/authMidleware.js";
 import { checkAccess } from "../middlewares/authRole.js";
 import { feature } from "../utils/feature.js";
 const adminRoute = express.Router();
-adminRoute.post('/register',authMiddleware,checkAccess(), registerUser);
+adminRoute.post('/register',authMiddleware,checkAccess([feature.team]), registerUser);
 adminRoute.get('/get-all-user',authMiddleware,checkAccess([feature.team]), getAllUsers);
 adminRoute.delete("/delete-user/:id", authMiddleware,checkAccess([feature.team]), deleteUser);
 adminRoute.patch("/update-user/:id", authMiddleware,checkAccess([feature.team,feature.profile]), updateUser);

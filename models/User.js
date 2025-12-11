@@ -27,7 +27,7 @@ const userSchema=new mongoose.Schema({
     role:{
         type:String,
         required:true,
-        enum:["admin","Frontend Developer" ,"Backend Developer", "Full Stack Developer", "DevOps Engineer","App Development","MERN Stack Developer","PHP Developer","MEAN Stack Developer","Cade Designer","Graphic Designer",,"Website Designer","Sales Marketing","Social Media Marketing","Digital Marketing","Development Manger","Designer Manager","Marketing Manager","Manager","Casting Manager","Production Manager","Dia Casting","Metal Casting","Filing","Setting","Pre Polish","Polish","Repair","HR Executive", "Recruiter", "HR Manager"],
+        enum:["admin","Frontend Developer" ,"Backend Developer", "Full Stack Developer", "DevOps Engineer","App Development","MERN Stack Developer","PHP Developer","MEAN Stack Developer","Cade Designer","Graphic Designer",,"Website Designer","Sales Marketing","Social Media Marketing","Digital Marketing","Development Manger","Designer Manager","Marketing Manager","Manager","Production Manager","Casting","Filing","Setting","Pre Polish","Polish","Repair","HR Executive", "Recruiter", "HR Manager"],
         trim:true
     },
   

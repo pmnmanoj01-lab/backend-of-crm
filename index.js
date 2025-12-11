@@ -7,6 +7,8 @@ import connectDB from './config/db.js';
 import adminRoute from './routes/adminRoute.js';
 import errorHandler from './middlewares/errorHandler.js';
 import authRoute from './routes/authRoute.js';
+import managerRoute from './routes/managerRoute.js';
+import productRoute from './routes/productRoute.js';
 
 const app = express();
 
@@ -51,6 +53,8 @@ connectDB();
 // Routes
 app.use('/admin', adminRoute);
 app.use("/auth", authRoute)
+app.use("/manager", managerRoute)
+app.use("/product", productRoute)
 app.get("/test", (_, res) => {
     res.send("server is running on port 5000")
 })

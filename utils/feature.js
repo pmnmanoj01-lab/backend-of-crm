@@ -2,5 +2,6 @@ export const feature={
     team:"team",
     dashboard:"dashboard",
     profile:"profile",
-    permissions:"permissions"
+    permissions:"permissions",
+    product:"product"
 }
