@@ -1,5 +1,10 @@
+import mongoose from "mongoose";
 import Product from "../models/Product.js";
 import Filing from "../models/ProductProcess/Filing.js";
+import Setting from "../models/ProductProcess/Setting.js";
+import PrePolish from "../models/ProductProcess/PrePolish.js";
+import Polish from "../models/ProductProcess/Polish.js";
+import Repair from "../models/ProductProcess/Repair.js";
 export const createProduct = async (req, res) => {
   try {
     const {
@@ -72,11 +77,7 @@ export const createProduct = async (req, res) => {
 };
 export const editProduct = async (req, res) => {
   try {
-    const user = req.user;
     const { productId } = req.params;
-
-
-
     const casting = await Product.findById(productId);
     if (!casting) {
       return res.status(404).json({
@@ -93,7 +94,7 @@ export const editProduct = async (req, res) => {
       returnedWeight,
       userId,
     } = req.body;
-  
+
     // Update only if exists in req.body
     if (material !== undefined) casting.material = material;
     if (subCategory !== undefined) casting.subCategory = subCategory;
@@ -104,7 +105,7 @@ export const editProduct = async (req, res) => {
     if (returnedWeight !== undefined) casting.returnedWeight = returnedWeight;
 
     // Recalculate weight loss only if both fields exist in request
-    if (weightProvided !== undefined && returnedWeight !== undefined) {
+    if (weightProvided !== 0 && returnedWeight !== 0) {
       casting.weightLoss = weightProvided - returnedWeight;
     }
 
@@ -112,16 +113,17 @@ export const editProduct = async (req, res) => {
 
     // Update Product process progress
 
-
     // Update next process only if returnedWeight came from input
-    if (returnedWeight !== undefined && casting.filing !== null) {
-      await Product.findByIdAndUpdate(casting._id, {
-        $addToSet: { completedProcesses: "Casting" },
-      });
+    if (returnedWeight !== 0) {
+
       await Filing.findOneAndUpdate(
         { product: casting._id },
-        { weightProvided: returnedWeight }
+        { weightProvided: returnedWeight, product: casting._id },
+        { upsert: true, new: true }
       );
+      await Product.findByIdAndUpdate(casting._id, {
+        $addToSet: { completedProcesses: "Casting" },
+      }, { new: true });
     }
 
     return res.json({
@@ -153,28 +155,252 @@ export const getAllProducts = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    let query = {};
+    const matchStage = {};
 
-    // If user is NOT admin/manager/Product Manager → filter by userId
-    if (userId) {
-      query.userId = userId;
-    }
-
-    // Searching
+    // Search
     if (search) {
-      query.name = { $regex: search, $options: "i" };
+      matchStage.name = { $regex: search, $options: "i" };
     }
 
-    // Material filters
-    if (material) query.material = material;
-    if (subCategory) query.subCategory = subCategory;
-    if (childCategory) query.childCategory = childCategory;
+    // Filters
+    if (material) matchStage.material = material;
+    if (subCategory) matchStage.subCategory = subCategory;
+    if (childCategory) matchStage.childCategory = childCategory;
 
-    const products = await Product.find(query)
-      .skip(skip)
-      .limit(Number(limit));
+    const pipeline = [
+      { $match: matchStage },
 
-    const total = await Product.countDocuments(query);
+      /* ---------------- CASTING ---------------- */
+      {
+        $lookup: {
+          from: "settings",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product", "$$productId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $project: {
+                "user.password": 0, // hide sensitive fields
+                "user.__v": 0
+              }
+            }
+          ],
+          as: "setting",
+        },
+      },
+
+      /* ---------------- FILING ---------------- */
+      {
+        $lookup: {
+          from: "filings",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product", "$$productId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $project: {
+                "user.password": 0, // hide sensitive fields
+                "user.__v": 0
+              }
+            }
+          ],
+          as: "filing"
+        }
+      }
+      ,
+
+      /* ---------------- PREPOLISH ---------------- */
+      {
+        $lookup: {
+          from: "prepolishes",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product", "$$productId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $project: {
+                "user.password": 0, // hide sensitive fields
+                "user.__v": 0
+              }
+            }
+          ],
+          as: "prepolish",
+        },
+      },
+      {
+        $lookup: {
+          from: "polishes",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product", "$$productId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $project: {
+                "user.password": 0, // hide sensitive fields
+                "user.__v": 0
+              }
+            }
+          ],
+          as: "polish",
+        },
+      },
+      {
+        $lookup: {
+          from: "repairs",
+          let: { productId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$product", "$$productId"] }
+              }
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true
+              }
+            },
+            {
+              $project: {
+                "user.password": 0, // hide sensitive fields
+                "user.__v": 0
+              }
+            }
+          ],
+          as: "repair",
+        },
+      },
+      {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "user"
+              }
+            },
+    ];
+    const userObjectId = userId
+      ? new mongoose.Types.ObjectId(userId)
+      : null;
+
+    // Pagination
+    pipeline.push(
+      { $skip: skip },
+      { $limit: Number(limit) }
+    );
+    let products = await Product.aggregate(pipeline);
+    if (
+      products?.length > 0 &&
+      userObjectId &&
+      req.user.user.role !== "admin" &&
+      req.user.user.role !== "Manager"
+    ) {
+      const uid = userObjectId.toString();
+
+      products = products.filter(item => {
+        if (item.userId?.toString() === uid) return true;
+
+        const processUsers = [
+          item.setting?.[0]?.userId,
+          item.filing?.[0]?.userId,
+          item.prepolish?.[0]?.userId,
+          item.polish?.[0]?.userId,
+          item.repair?.[0]?.userId,
+        ];
+
+        return processUsers.some(
+          u => u && u.toString() === uid
+        );
+      });
+    }
+
+
+
+    // Count
+    const countPipeline = pipeline.filter(
+      stage => !stage.$skip && !stage.$limit
+    );
+
+    countPipeline.push({ $count: "total" });
+
+    const countResult = await Product.aggregate(countPipeline);
+    const total = countResult[0]?.total || 0;
 
     res.json({
       products,
@@ -183,11 +409,13 @@ export const getAllProducts = async (req, res) => {
         totalPages: Math.ceil(total / limit),
       },
     });
+
   } catch (err) {
-    console.log(err);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 export const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -224,4 +452,48 @@ export const getProductById = async (req, res) => {
     });
   }
 };
+export const deleteProduct = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
+  try {
+    const { productId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ message: "Invalid product ID" });
+    }
+
+    // Check product exists
+    const product = await Product.findById(productId).session(session);
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // 🔥 DELETE ALL RELATED PROCESS DATA
+    await Promise.all([
+      Setting.deleteMany({ product: productId }).session(session),
+      Filing.deleteMany({ product: productId }).session(session),
+      PrePolish.deleteMany({ product: productId }).session(session),
+      Polish.deleteMany({ product: productId }).session(session),
+      Repair.deleteMany({ product: productId }).session(session),
+    ]);
+
+    // 🔥 DELETE PRODUCT
+    await Product.findByIdAndDelete(productId).session(session);
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: "Product and related process data deleted successfully",
+    });
+
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

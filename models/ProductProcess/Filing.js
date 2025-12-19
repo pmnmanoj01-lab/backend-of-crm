@@ -10,15 +10,17 @@ const filingSchema = new mongoose.Schema({
     extraMaterialWeight: { type: Number, default: 0 },
     childCategory: { type: String },
     weightProvided: { type: Number, required: true },
-    needExtraMaterial:{type:Boolean,default:false},
+    needExtraMaterial: { type: Boolean, default: false },
     weightLoss: { type: Number, default: 0 },
     returnedWeight: { type: Number, default: 0 },
+    scrab: { type: Number, default: 0 },
+    wireWeight: { type: Number, default: 0 },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
     },
-
+}, {
+    timestamps: true
 })
 
 const Filing = mongoose.models.Filing || mongoose.model("Filing", filingSchema);

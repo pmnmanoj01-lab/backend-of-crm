@@ -9,6 +9,7 @@ import errorHandler from './middlewares/errorHandler.js';
 import authRoute from './routes/authRoute.js';
 import managerRoute from './routes/managerRoute.js';
 import productRoute from './routes/productRoute.js';
+import dashboardRoute from './routes/dashboardRoute.js';
 
 const app = express();
 
@@ -55,6 +56,7 @@ app.use('/admin', adminRoute);
 app.use("/auth", authRoute)
 app.use("/manager", managerRoute)
 app.use("/product", productRoute)
+app.use("/dashboard", dashboardRoute)
 app.get("/test", (_, res) => {
     res.send("server is running on port 5000")
 })

@@ -11,9 +11,10 @@ const prePolishSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
     },
 
+},{
+    timestamps:true
 })
 
 const PrePolish = mongoose.models.PrePolish || mongoose.model("PrePolish", prePolishSchema);

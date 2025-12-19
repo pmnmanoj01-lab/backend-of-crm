@@ -61,9 +61,9 @@ export const createPrePolish = async (req, res) => {
       userId,
     });
 
-    if(prepolish){
-        productExists.prepolish=prepolish._id
-        await productExists.save()
+    if (prepolish) {
+      productExists.prepolish = prepolish._id
+      await productExists.save()
     }
     // ---------------------------
     // Response
@@ -101,26 +101,26 @@ export const updatePrePolish = async (req, res) => {
     // ---------------------------------------------
     // Validate Product ID (optional but good)
     // ---------------------------------------------
-    
-      const productExists = await Product.findById(product).lean();
-      if (!productExists) {
-        return res.status(404).json({
-          success: false,
-          message: "Product not found.",
-        });
-      }
-    
 
-    const prepolish=await PrePolish.findOne({product:productId}).exec()
-    
+    const productExists = await Product.findById(product).lean();
+    if (!productExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found.",
+      });
+    }
+
+
+    const prepolish = await PrePolish.findOne({ product: productId }).exec()
+
     if (userId !== undefined) prepolish.userId = userId;
 
     if (weightProvided !== undefined) prepolish.weightProvided = weightProvided;
     if (returnedWeight !== undefined) prepolish.returnedWeight = returnedWeight;
-    
+
 
     // Recalculate weight loss only if both fields exist in request
-    if (weightProvided !== undefined && returnedWeight !== undefined) {
+    if (weightProvided !== 0 && returnedWeight !== 0) {
       prepolish.weightLoss = weightProvided - returnedWeight;
     }
 
@@ -128,18 +128,21 @@ export const updatePrePolish = async (req, res) => {
 
     // Update Product process progress
 
-    
+
 
     // Update next process only if returnedWeight came from input
-    if (returnedWeight !== undefined && productExists.prepolish !== null) {
+    if (returnedWeight !== 0) {
       await Product.findByIdAndUpdate(prepolish.product, {
         $addToSet: { completedProcesses: "Pre Polish" },
+        prepolish:prepolish._id
       });
       await Setting.findOneAndUpdate(
         { product: prepolish.product },
-        { weightProvided: returnedWeight }
+        { weightProvided: returnedWeight, product: prepolish.product },
+        { upsert: true, new: true }
       );
-    }    return res.status(200).json({
+
+    } return res.status(200).json({
       success: true,
       message: "Filing updated successfully.",
       data: prepolish,
@@ -155,43 +158,43 @@ export const updatePrePolish = async (req, res) => {
 };
 
 export const getPrePolishData = async (req, res) => {
-    try {
-        const { productId } = req.params;
+  try {
+    const { productId } = req.params;
 
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: "Product ID is required.",
-            });
-        }
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required.",
+      });
+    }
 
-       const prepolish = await PrePolish.findOne({ product: productId })
-    .populate({
+    const prepolish = await PrePolish.findOne({ product: productId })
+      .populate({
         path: "userId",
         select: "-password -__v"  // exclude password (and other fields if needed)
-    })
-    .lean();
+      })
+      .lean();
 
-        if (!prepolish) {
-            return res.status(404).json({
-                success: false,
-                message: "Filing data not found.",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Filing data retrieved successfully.",
-            data: prepolish,
-        });
-
-    } catch (error) {
-        console.error("Error fetching Filing data:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error.",
-        });
+    if (!prepolish) {
+      return res.status(404).json({
+        success: false,
+        message: "Filing data not found.",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Filing data retrieved successfully.",
+      data: prepolish,
+    });
+
+  } catch (error) {
+    console.error("Error fetching Filing data:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
 };
 

@@ -12,10 +12,11 @@ export const createFiling = async (req, res) => {
       needExtraMaterial,
       subCategory,
       childCategory,
+      wireWeight,
+      scrab,
       extraMaterialWeight = 0,
       product
     } = req.body;
-
     // ---------------------------
     // Basic Validations
     // ---------------------------
@@ -68,12 +69,14 @@ export const createFiling = async (req, res) => {
       needExtraMaterial,
       subCategory,
       childCategory,
+      wireWeight,
+      scrab,
       extraMaterialWeight
     });
 
-    if(filing){
-        productExists.filing=filing._id
-        await productExists.save()
+    if (filing) {
+      productExists.filing = filing._id
+      await productExists.save()
     }
     // ---------------------------
     // Response
@@ -109,34 +112,30 @@ export const updateFiling = async (req, res) => {
       needExtraMaterial,
       childCategory,
       extraMaterialWeight,
+      wireWeight,
+      scrab,
       userId
     } = req.body;
 
-    // ---------------------------------------------
-    // Validate Product ID
-    // ---------------------------------------------
-    const productExists = await Product.findById(productId).lean();
+    console.log("req body data is as------------> ",req.body)
+
+    /* ✅ PREVENT NaN (NO LOGIC CHANGE) */
+    weightProvided = Number(weightProvided) || 0;
+    returnedWeight = Number(returnedWeight) || 0;
+    extraMaterialWeight = Number(extraMaterialWeight) || 0;
+    wireWeight = Number(wireWeight) || 0;
+    scrab = Number(scrab) || 0;
+
+    const productExists = await Product.findById(productId);
     if (!productExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Product not found.",
-      });
+      return res.status(404).json({ success: false, message: "Product not found." });
     }
 
-    // ---------------------------------------------
-    // Find Filing Entry
-    // ---------------------------------------------
     const filing = await Filing.findOne({ product: productId });
     if (!filing) {
-      return res.status(404).json({
-        success: false,
-        message: "Filing data not found.",
-      });
+      return res.status(404).json({ success: false, message: "Filing data not found." });
     }
 
-    // ---------------------------------------------
-    // Update Only Provided Fields
-    // ---------------------------------------------
     const fields = {
       weightProvided,
       returnedWeight,
@@ -145,58 +144,57 @@ export const updateFiling = async (req, res) => {
       childCategory,
       extraMaterialWeight,
       userId,
+      wireWeight,
+      scrab,
       needExtraMaterial,
     };
 
-    // Clean undefined / empty values
     Object.keys(fields).forEach((key) => {
       if (fields[key] !== undefined && fields[key] !== "") {
         filing[key] = fields[key];
       }
     });
 
-    // ---------------------------------------------
-    // RECALCULATE WEIGHT LOSS
-    // Always calculate using updated or old values
-    // ---------------------------------------------
-    const updatedWeightProvided =
-      weightProvided !== undefined ? weightProvided : filing.weightProvided;
+    if (weightProvided !== 0 && returnedWeight !== 0) {
+      if (extraMaterialWeight !== 0) {
+        const totalWeight = weightProvided + extraMaterialWeight;
 
-    const updatedReturnedWeight =
-      returnedWeight !== undefined ? returnedWeight : filing.returnedWeight;
+        if (scrab !== 0) {
+          filing.weightLoss = totalWeight - (returnedWeight + scrab);
+        } else {
+          filing.weightLoss = totalWeight - returnedWeight;
+        }
+      } else {
+        if (scrab !== 0) {
+          filing.weightLoss = weightProvided - (returnedWeight + scrab);
+        } else {
+          filing.weightLoss = weightProvided - extraMaterialWeight;
+        }
+      }
 
-    if (
-      updatedWeightProvided !== undefined &&
-      updatedReturnedWeight !== undefined &&
-      updatedWeightProvided !== null &&
-      updatedReturnedWeight !== null
-    ) {
-      filing.weightLoss = Number(updatedWeightProvided) - Number(updatedReturnedWeight);
-      if (filing.weightLoss < 0) filing.weightLoss = 0;
+      if (filing.weightLoss <= 0) filing.weightLoss = 0;
+    }
+
+    /* ✅ FINAL SAFETY */
+    if (Number.isNaN(filing.weightLoss)) {
+      filing.weightLoss = 0;
     }
 
     await filing.save();
 
-    // ---------------------------------------------
-    // UPDATE PROCESS STATUS ON PRODUCT
-    // (marks Filing as completed)
-    // ---------------------------------------------
-    await Product.findByIdAndUpdate(productId, {
-      $addToSet: { completedProcesses: "Filing" },
-    });
+    if (returnedWeight !== 0) {
+      await Product.findByIdAndUpdate(productId, {
+        $addToSet: { completedProcesses: "Filing" },
+        filing: filing._id
+      });
 
-    // ---------------------------------------------
-    // UPDATE PRE-POLISH (next process)
-    // Only if returnedWeight came in request
-    // ---------------------------------------------
-    if (returnedWeight !== undefined) {
-        if(extraMaterialWeight!==undefined){
-            returnedWeight+=extraMaterialWeight
-        }
-        console.log("here is some logic ---------> ",needExtraMaterial,extraMaterialWeight)
+      if (wireWeight !== 0) {
+        returnedWeight += wireWeight;
+      }
+
       await PrePolish.findOneAndUpdate(
         { product: productId },
-        { weightProvided: returnedWeight },
+        { weightProvided: returnedWeight, product: productId },
         { upsert: true, new: true }
       );
     }
@@ -218,43 +216,43 @@ export const updateFiling = async (req, res) => {
 
 
 export const getFilingData = async (req, res) => {
-    try {
-        const { productId } = req.params;
+  try {
+    const { productId } = req.params;
 
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: "Product ID is required.",
-            });
-        }
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required.",
+      });
+    }
 
-       const filingData = await Filing.findOne({ product: productId })
-    .populate({
+    const filingData = await Filing.findOne({ product: productId })
+      .populate({
         path: "userId",
         select: "-password -__v"  // exclude password (and other fields if needed)
-    })
-    .lean();
+      })
+      .lean();
 
-        if (!filingData) {
-            return res.status(404).json({
-                success: false,
-                message: "Filing data not found.",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Filing data retrieved successfully.",
-            data: filingData,
-        });
-
-    } catch (error) {
-        console.error("Error fetching Filing data:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error.",
-        });
+    if (!filingData) {
+      return res.status(404).json({
+        success: false,
+        message: "Filing data not found.",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Filing data retrieved successfully.",
+      data: filingData,
+    });
+
+  } catch (error) {
+    console.error("Error fetching Filing data:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
 };
 

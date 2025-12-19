@@ -7,9 +7,19 @@ const login = async (req, res, next) => {
         const { email, password } = req.body;
         // 1️⃣ Check if email exists
         const user = await User.findOne({ email });
+
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
+        //validate that user is blocked or unblocked
+        if (!user.isActive && user !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Your account has been blocked. Please contact the administrator."
+            });
+        }
+
+
         // 2️⃣ Validate password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
@@ -18,7 +28,10 @@ const login = async (req, res, next) => {
 
         // 3️⃣ Generate JWT token
         const token = jwt.sign(
-            { id: user._id, user },
+            {
+                id: user._id, user, isImpersonating: false,
+                impersonatedBy: {}
+            },
             process.env.JWT_SECRET,
             { expiresIn: "7d" }
         );
@@ -70,6 +83,8 @@ const DecodeToken = async (req, res) => {
         const user = await User.findById(req.user.id).select("-password -createdAt -updatedAt").lean();
         const newUser = {
             ...user,
+            isImpersonating: req.user.isImpersonating ? req.user.isImpersonating : false,
+            impersonatedBy: req.user.impersonatedBy ? req.user.impersonatedBy : {},
             access: cleanedAccess  // attach cleaned access array
         };
 
@@ -91,4 +106,62 @@ const Logout = (req, res) => {
     res.json({ success: true, message: "Logged out" });
 
 };
-export { login, DecodeToken, Logout };
+const impersonateAdmin = async (req, res) => {
+    if (req.user.user.role !== "admin") {
+        return res.status(403).json({ message: "Only admin can impersonate" });
+    }
+
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    const token = jwt.sign(
+        {
+            id: targetUser._id,
+            user: targetUser,
+            isImpersonating: true,
+            impersonatedBy: {
+                _id: req.user.id,
+                role: req.user.user.role
+            }
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+    );
+
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+    res.json({ success: true });
+}
+const exitImpersonateAdmin = async (req, res) => {
+    if (!req.user.isImpersonating) {
+        return res.status(400).json({ message: "Not impersonating" });
+    }
+    const user = await User.findById(req.user?.impersonatedBy?._id).lean()
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+    const token = jwt.sign(
+        {
+            id: user._id, user, isImpersonating: false,
+            impersonatedBy: {}
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+    );
+
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    res.json({ success: true });
+}
+export { login, DecodeToken, Logout, impersonateAdmin, exitImpersonateAdmin };

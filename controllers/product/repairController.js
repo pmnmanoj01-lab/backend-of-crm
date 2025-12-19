@@ -69,9 +69,9 @@ export const createRepair = async (req, res) => {
       extraMaterialWeight
     });
 
-    if(filing){
-        productExists.repair=filing._id
-        await productExists.save()
+    if (filing) {
+      productExists.repair = filing._id
+      await productExists.save()
     }
     // ---------------------------
     // Response
@@ -92,9 +92,6 @@ export const createRepair = async (req, res) => {
   }
 };
 
-
-
-
 export const updateRepair = async (req, res) => {
   try {
     const { productId } = req.params;
@@ -107,7 +104,8 @@ export const updateRepair = async (req, res) => {
       needExtraMaterial,
       childCategory,
       extraMaterialWeight,
-      userId
+      userId,
+      scrab
     } = req.body;
 
     // ---------------------------------------------
@@ -135,7 +133,7 @@ export const updateRepair = async (req, res) => {
     // ---------------------------------------------
     // Update Only Provided Fields
     // ---------------------------------------------
-    const fields = {
+    let fields = {
       weightProvided,
       returnedWeight,
       material,
@@ -144,8 +142,12 @@ export const updateRepair = async (req, res) => {
       extraMaterialWeight,
       userId,
       needExtraMaterial,
+      scrab
     };
-
+    weightProvided = Number(weightProvided) || 0;
+    returnedWeight = Number(returnedWeight) || 0;
+    extraMaterialWeight = Number(extraMaterialWeight) || 0;
+    scrab = Number(scrab) || 0;
     // Clean undefined / empty values
     Object.keys(fields).forEach((key) => {
       if (fields[key] !== undefined && fields[key] !== "") {
@@ -153,24 +155,29 @@ export const updateRepair = async (req, res) => {
       }
     });
 
-    // ---------------------------------------------
-    // RECALCULATE WEIGHT LOSS
-    // Always calculate using updated or old values
-    // ---------------------------------------------
-    const updatedWeightProvided =
-      weightProvided !== undefined ? weightProvided : filing.weightProvided;
+    if (weightProvided !== 0 && returnedWeight !== 0) {
+      if (extraMaterialWeight !== 0) {
+        const totalWeight = weightProvided + extraMaterialWeight;
 
-    const updatedReturnedWeight =
-      returnedWeight !== undefined ? returnedWeight : filing.returnedWeight;
+        if (scrab !== 0) {
+          filing.weightLoss = totalWeight - (returnedWeight + scrab);
+        } else {
+          filing.weightLoss = totalWeight - returnedWeight;
+        }
+      } else {
+        if (scrab !== 0) {
+          filing.weightLoss = weightProvided - (returnedWeight + scrab);
+        } else {
+          filing.weightLoss = weightProvided - extraMaterialWeight;
+        }
+      }
 
-    if (
-      updatedWeightProvided !== undefined &&
-      updatedReturnedWeight !== undefined &&
-      updatedWeightProvided !== null &&
-      updatedReturnedWeight !== null
-    ) {
-      filing.weightLoss = Number(updatedWeightProvided) - Number(updatedReturnedWeight);
-      if (filing.weightLoss < 0) filing.weightLoss = 0;
+      if (filing.weightLoss <= 0) filing.weightLoss = 0;
+    }
+
+    /* ✅ FINAL SAFETY */
+    if (Number.isNaN(filing.weightLoss)) {
+      filing.weightLoss = 0;
     }
 
     await filing.save();
@@ -179,15 +186,19 @@ export const updateRepair = async (req, res) => {
     // UPDATE PROCESS STATUS ON PRODUCT
     // (marks Filing as completed)
     // ---------------------------------------------
-    await Product.findByIdAndUpdate(productId, {
-      $addToSet: { completedProcesses: "Repair" },
-    });
+    if (returnedWeight !== 0) {
+      await Product.findByIdAndUpdate(productId, {
+        $addToSet: { completedProcesses: "Repair" },
+        repair: filing._id
+      });
+    }
+
 
     // ---------------------------------------------
     // UPDATE PRE-POLISH (next process)
     // Only if returnedWeight came in request
     // ---------------------------------------------
-    
+
 
     return res.status(200).json({
       success: true,
@@ -206,43 +217,43 @@ export const updateRepair = async (req, res) => {
 
 
 export const getRepairData = async (req, res) => {
-    try {
-        const { productId } = req.params;
+  try {
+    const { productId } = req.params;
 
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: "Product ID is required.",
-            });
-        }
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required.",
+      });
+    }
 
-       const filingData = await Repair.findOne({ product: productId })
-    .populate({
+    const filingData = await Repair.findOne({ product: productId })
+      .populate({
         path: "userId",
         select: "-password -__v"  // exclude password (and other fields if needed)
-    })
-    .lean();
+      })
+      .lean();
 
-        if (!filingData) {
-            return res.status(404).json({
-                success: false,
-                message: "Repair data not found.",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Repair data retrieved successfully.",
-            data: filingData,
-        });
-
-    } catch (error) {
-        console.error("Error fetching Repair data:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error.",
-        });
+    if (!filingData) {
+      return res.status(404).json({
+        success: false,
+        message: "Repair data not found.",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Repair data retrieved successfully.",
+      data: filingData,
+    });
+
+  } catch (error) {
+    console.error("Error fetching Repair data:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
 };
 

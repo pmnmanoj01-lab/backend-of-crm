@@ -70,9 +70,9 @@ export const createPolish = async (req, res) => {
       extraMaterialWeight
     });
 
-    if(filing){
-        productExists.polish=filing._id
-        await productExists.save()
+    if (filing) {
+      productExists.polish = filing._id
+      await productExists.save()
     }
     // ---------------------------
     // Response
@@ -167,11 +167,11 @@ export const updatePolish = async (req, res) => {
     if (
       updatedWeightProvided !== undefined &&
       updatedReturnedWeight !== undefined &&
-      updatedWeightProvided !== null &&
-      updatedReturnedWeight !== null
+      updatedWeightProvided !== 0 &&
+      updatedReturnedWeight !== 0
     ) {
       filing.weightLoss = Number(updatedWeightProvided) - Number(updatedReturnedWeight);
-      if (filing.weightLoss < 0) filing.weightLoss = 0;
+      if (filing.weightLoss <= 0) filing.weightLoss = 0;
     }
 
     await filing.save();
@@ -180,21 +180,23 @@ export const updatePolish = async (req, res) => {
     // UPDATE PROCESS STATUS ON PRODUCT
     // (marks Filing as completed)
     // ---------------------------------------------
-    await Product.findByIdAndUpdate(productId, {
-      $addToSet: { completedProcesses: "Polish" },
-    });
 
     // ---------------------------------------------
     // UPDATE PRE-POLISH (next process)
     // Only if returnedWeight came in request
     // ---------------------------------------------
-    if (returnedWeight !== undefined) {
-        if(extraMaterialWeight!==undefined){
-            returnedWeight+=extraMaterialWeight
-        }
+    if (returnedWeight !== 0) {
+      await Product.findByIdAndUpdate(productId, {
+        $addToSet: { completedProcesses: "Polish" },
+        polish:filing._id
+      });
+
+      if (extraMaterialWeight !== undefined) {
+        returnedWeight += extraMaterialWeight
+      }
       await Repair.findOneAndUpdate(
         { product: productId },
-        { weightProvided: returnedWeight },
+        { weightProvided: returnedWeight, product: productId },
         { upsert: true, new: true }
       );
     }
@@ -216,43 +218,43 @@ export const updatePolish = async (req, res) => {
 
 
 export const getPolishData = async (req, res) => {
-    try {
-        const { productId } = req.params;
+  try {
+    const { productId } = req.params;
 
-        if (!productId) {
-            return res.status(400).json({
-                success: false,
-                message: "Product ID is required.",
-            });
-        }
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required.",
+      });
+    }
 
-       const filingData = await Polish.findOne({ product: productId })
-    .populate({
+    const filingData = await Polish.findOne({ product: productId })
+      .populate({
         path: "userId",
         select: "-password -__v"  // exclude password (and other fields if needed)
-    })
-    .lean();
+      })
+      .lean();
 
-        if (!filingData) {
-            return res.status(404).json({
-                success: false,
-                message: "Polish data not found.",
-            });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Polish data retrieved successfully.",
-            data: filingData,
-        });
-
-    } catch (error) {
-        console.error("Error fetching Polish data:", error);
-
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error.",
-        });
+    if (!filingData) {
+      return res.status(404).json({
+        success: false,
+        message: "Polish data not found.",
+      });
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Polish data retrieved successfully.",
+      data: filingData,
+    });
+
+  } catch (error) {
+    console.error("Error fetching Polish data:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+    });
+  }
 };
 

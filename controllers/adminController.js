@@ -49,53 +49,6 @@ const registerUser = async (req, res, next) => {
     next(error);
   }
 };
-// const getAllUsers = async (req, res) => {
-//   try {
-//     const page = Math.max(parseInt(req.query.page || "1"), 1);
-//     const limit = Math.max(parseInt(req.query.limit || "10"), 1);
-//     const search = (req.query.search || "").trim();
-//     const role = req.query.role || "";
-//     const sortBy = req.query.sortBy || "createdAt";
-//     const order = req.query.order === "asc" ? 1 : -1;
-//     const currentUserId = req.user?.id;
-//     const filter = {};
-//     if (currentUserId) {
-//       filter._id = { $ne: currentUserId };
-//     }
-
-//     if (search) {
-//       // case-insensitive partial match on name or email
-//       filter.$or = [
-//         { name: { $regex: search, $options: "i" } },
-//         { email: { $regex: search, $options: "i" } },
-//       ];
-//     }
-//     if (role && role !== "all") {
-//       filter.role = role;
-//     }
-
-//     const total = await User.countDocuments(filter);
-//     const users = await User.find(filter)
-//       .select("-password")
-//       .sort({ [sortBy]: order })
-//       .skip((page - 1) * limit)
-//       .limit(limit)
-//       .lean();
-
-//     return res.status(200).json({
-//       users,
-//       pagination: {
-//         total,
-//         page,
-//         limit,
-//         totalPages: Math.ceil(total / limit) || 1,
-//       },
-//     });
-//   } catch (err) {
-//     console.error(err);
-//     return res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 const getAllUsers = async (req, res) => {
   try {
@@ -302,5 +255,56 @@ const getUserPermissions = async (req, res) => {
   }
 };
 
+const updateUserStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { isActive } = req.body;
 
-export { registerUser, getAllUsers, updateUser, deleteUser, getUserById, updatePermissions, getUserPermissions };
+        // -----------------------------
+        // Validate input
+        // -----------------------------
+        if (typeof isActive !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: "isActive must be a boolean value"
+            });
+        }
+
+        // -----------------------------
+        // Check user exists
+        // -----------------------------
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
+
+        // -----------------------------
+        // Update status
+        // -----------------------------
+        user.isActive = isActive;
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `User ${isActive ? "activated" : "deactivated"} successfully`,
+            user: {
+                _id: user._id,
+                isActive: user.isActive
+            }
+        });
+
+    } catch (error) {
+        console.error("Update User Status Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
+
+
+export { registerUser, getAllUsers, updateUser, deleteUser, getUserById, updatePermissions, getUserPermissions ,updateUserStatus};

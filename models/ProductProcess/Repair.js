@@ -6,6 +6,7 @@ const repairSchema = new mongoose.Schema({
     },
     weightProvided: { type: Number, required: true },
     weightLoss: { type: Number, default: 0 },
+    scrab: { type: Number, default: 0 },
     returnedWeight: { type: Number, default: 0 },
         material: { type: String },
     subCategory: { type: String },
@@ -14,9 +15,10 @@ const repairSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
     },
 
+},{
+    timestamps:true
 })
 
 const Repair = mongoose.models.Repair || mongoose.model("Repair", repairSchema);

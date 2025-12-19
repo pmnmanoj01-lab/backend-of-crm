@@ -3,5 +3,6 @@ export const feature={
     dashboard:"dashboard",
     profile:"profile",
     permissions:"permissions",
-    product:"product"
+    product:"product",
+    designer:"designer"
 }

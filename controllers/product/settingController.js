@@ -12,7 +12,9 @@ export const createSetting = async (req, res) => {
             diamondSubCategory,
             diamondChildCategory,
             diamondWeight = 0,
-            product
+            product,
+            diamondDimenssion,
+            diamondPices
         } = req.body;
 
         // ---------------------------
@@ -66,7 +68,9 @@ export const createSetting = async (req, res) => {
             diamondCategory,
             diamondSubCategory,
             diamondChildCategory,
-            diamondWeight
+            diamondWeight,
+            diamondDimenssion,
+            diamondPices
         });
 
         if (setting) {
@@ -106,9 +110,10 @@ export const updateSetting = async (req, res) => {
             diamondSubCategory,
             diamondChildCategory,
             diamondWeight,
-            userId
+            userId,
+            diamondDimenssion,
+            diamondPices
         } = req.body;
-
         // ---------------------------------------------
         // Validate Product ID
         // ---------------------------------------------
@@ -142,6 +147,8 @@ export const updateSetting = async (req, res) => {
             diamondChildCategory,
             diamondWeight,
             userId,
+            diamondDimenssion,
+            diamondPices
         };
 
         // Clean undefined / empty values
@@ -164,11 +171,11 @@ export const updateSetting = async (req, res) => {
         if (
             updatedWeightProvided !== undefined &&
             updatedReturnedWeight !== undefined &&
-            updatedWeightProvided !== null &&
-            updatedReturnedWeight !== null
+            updatedWeightProvided !== 0 &&
+            updatedReturnedWeight !== 0
         ) {
             setting.weightLoss = Number(updatedWeightProvided) - Number(updatedReturnedWeight);
-            if (setting.weightLoss < 0) setting.weightLoss = 0;
+            if (setting.weightLoss <= 0) setting.weightLoss = 0;
         }
 
         await setting.save();
@@ -177,21 +184,24 @@ export const updateSetting = async (req, res) => {
         // UPDATE PROCESS STATUS ON PRODUCT
         // (marks Filing as completed)
         // ---------------------------------------------
-        await Product.findByIdAndUpdate(productId, {
-            $addToSet: { completedProcesses: "Setting" },
-        });
+
 
         // ---------------------------------------------
         // UPDATE PRE-POLISH (next process)
         // Only if returnedWeight came in request
         // ---------------------------------------------
-        if (returnedWeight !== undefined) {
+        if (returnedWeight !== 0) {
+            await Product.findByIdAndUpdate(productId, {
+                $addToSet: { completedProcesses: "Setting" },
+                setting:setting._id
+            });
             if (diamondWeight !== undefined) {
                 returnedWeight += Number(diamondWeight)
             }
+            // await Polish.create({ weightProvided: returnedWeight ,product: productId}, );
             await Polish.findOneAndUpdate(
                 { product: productId },
-                { weightProvided: returnedWeight },
+                { weightProvided: returnedWeight, product: productId },
                 { upsert: true, new: true }
             );
         }
