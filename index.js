@@ -13,11 +13,7 @@ import dashboardRoute from './routes/dashboardRoute.js';
 
 const app = express();
 
-
-
-
 const allowedOrigins = [
-    "*",
     "https://crm.bhunte.com/",  // Production
     "https://crm-six-blond.vercel.app/",  // Production
     "http://localhost:5173",
@@ -31,6 +27,9 @@ app.use(cors({
 
         // Allow Vercel preview deployments (*.vercel.app)
         if (origin.includes(".vercel.app")) {
+            return callback(null, true);
+        }
+        if (origin.includes(".bhunte.com")) {
             return callback(null, true);
         }
 
