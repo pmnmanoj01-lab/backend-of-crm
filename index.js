@@ -18,6 +18,7 @@ const app = express();
 
 const allowedOrigins = [
     "*",
+    "https://crm.bhunte.com/",  // Production
     "https://crm-six-blond.vercel.app/",  // Production
     "http://localhost:5173",
     "http://localhost:3000",              // Local dev
