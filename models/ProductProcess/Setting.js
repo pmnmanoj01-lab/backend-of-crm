@@ -10,9 +10,9 @@ const settingSchema = new mongoose.Schema({
     diamondCategory: { type: String },
     diamondSubCategory: { type: String },
     diamondDimenssion: { type: String },
-    diamondWeight: { type: Number, default: 0 },
-    diamondPices: { type: Number, default: 0 },
-    diamondChildCategory: { type: String },
+    diamondWeight: { type: String},
+    diamondPices: { type: String},
+    diamondChildCategory: { type: [String] },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

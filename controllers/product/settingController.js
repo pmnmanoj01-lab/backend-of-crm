@@ -4,7 +4,7 @@ import Setting from "../../models/ProductProcess/Setting.js";
 
 export const createSetting = async (req, res) => {
     try {
-        const {
+        let {
             weightProvided,
             returnedWeight = 0,
             userId,
@@ -114,6 +114,7 @@ export const updateSetting = async (req, res) => {
             diamondDimenssion,
             diamondPices
         } = req.body;
+        // console.log("req body data that are fetched from the frontend side ----------> ",req.body)
         // ---------------------------------------------
         // Validate Product ID
         // ---------------------------------------------
@@ -193,11 +194,15 @@ export const updateSetting = async (req, res) => {
         if (returnedWeight !== 0) {
             await Product.findByIdAndUpdate(productId, {
                 $addToSet: { completedProcesses: "Setting" },
-                setting:setting._id
+                setting: setting._id
             });
-            if (diamondWeight !== undefined) {
-                returnedWeight += Number(diamondWeight)
+            if (diamondWeight !== "") {
+                returnedWeight += diamondWeight
+                    .split(",")
+                    .map(w => Number(w.trim()))
+                    .reduce((sum, w) => sum + (isNaN(w) ? 0 : w), 0);
             }
+
             // await Polish.create({ weightProvided: returnedWeight ,product: productId}, );
             await Polish.findOneAndUpdate(
                 { product: productId },
