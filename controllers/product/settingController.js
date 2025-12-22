@@ -96,6 +96,17 @@ export const createSetting = async (req, res) => {
     }
 };
 
+const calculateTotalDiamondWeight = (details) => {
+    let total = 0;
+
+    Object.values(details).forEach((shapeArray) => {
+        shapeArray.forEach((item) => {
+            total += Number(item.weight) || 0;
+        });
+    });
+
+    return total;
+};
 
 
 
@@ -109,15 +120,21 @@ export const updateSetting = async (req, res) => {
             diamondCategory,
             diamondSubCategory,
             diamondChildCategory,
-            diamondWeight,
             userId,
-            diamondDimenssion,
-            diamondPices
+            diamondDetails,
+            savedShapes
         } = req.body;
-        // console.log("req body data that are fetched from the frontend side ----------> ",req.body)
-        // ---------------------------------------------
-        // Validate Product ID
-        // ---------------------------------------------
+
+        const parsedDiamondDetails =
+            typeof diamondDetails === "string"
+                ? JSON.parse(diamondDetails)
+                : diamondDetails;
+
+        const parsedSavedShapes =
+            typeof savedShapes === "string"
+                ? JSON.parse(savedShapes)
+                : savedShapes;
+
         const productExists = await Product.findById(productId).lean();
         if (!productExists) {
             return res.status(404).json({
@@ -136,20 +153,19 @@ export const updateSetting = async (req, res) => {
                 message: "Filing data not found.",
             });
         }
-
         // ---------------------------------------------
         // Update Only Provided Fields
         // ---------------------------------------------
+
         const fields = {
             weightProvided,
             returnedWeight,
             diamondCategory,
             diamondSubCategory,
             diamondChildCategory,
-            diamondWeight,
             userId,
-            diamondDimenssion,
-            diamondPices
+            diamondDetails: parsedDiamondDetails,
+            savedShapes: parsedSavedShapes
         };
 
         // Clean undefined / empty values
@@ -164,14 +180,12 @@ export const updateSetting = async (req, res) => {
         // Always calculate using updated or old values
         // ---------------------------------------------
         const updatedWeightProvided =
-            weightProvided !== undefined ? weightProvided : setting.weightProvided;
+            weightProvided !== 0 ? weightProvided : setting.weightProvided;
 
         const updatedReturnedWeight =
-            returnedWeight !== undefined ? returnedWeight : setting.returnedWeight;
+            returnedWeight !== 0 ? returnedWeight : setting.returnedWeight;
 
         if (
-            updatedWeightProvided !== undefined &&
-            updatedReturnedWeight !== undefined &&
             updatedWeightProvided !== 0 &&
             updatedReturnedWeight !== 0
         ) {
@@ -196,13 +210,9 @@ export const updateSetting = async (req, res) => {
                 $addToSet: { completedProcesses: "Setting" },
                 setting: setting._id
             });
-            if (diamondWeight !== "") {
-                returnedWeight += diamondWeight
-                    .split(",")
-                    .map(w => Number(w.trim()))
-                    .reduce((sum, w) => sum + (isNaN(w) ? 0 : w), 0);
+            if (parsedDiamondDetails !== "") {
+                returnedWeight += calculateTotalDiamondWeight(parsedDiamondDetails);
             }
-
             // await Polish.create({ weightProvided: returnedWeight ,product: productId}, );
             await Polish.findOneAndUpdate(
                 { product: productId },

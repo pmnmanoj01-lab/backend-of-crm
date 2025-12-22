@@ -1,24 +1,88 @@
-import mongoose from 'mongoose'
-const settingSchema = new mongoose.Schema({
+import mongoose from "mongoose";
+
+const DiamondDimensionSchema = new mongoose.Schema(
+  {
+    dimension: {
+      type: String,
+      trim: true,
+    },
+    pieces: {
+      type: Number,
+      min: 0,
+    },
+    weight: {
+      type: Number,
+      min: 0,
+    },
+  },
+  { _id: false }
+);
+
+const ProductSettingSchema = new mongoose.Schema(
+  {
     product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product"
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
     },
-    weightProvided: { type: Number, required: true },
-    weightLoss: { type: Number, default: 0 },
-    returnedWeight: { type: Number, default: 0 },
-    diamondCategory: { type: String },
-    diamondSubCategory: { type: String },
-    diamondDimenssion: { type: String },
-    diamondWeight: { type: String},
-    diamondPices: { type: String},
-    diamondChildCategory: { type: [String] },
+
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-},{
-    timestamps:true
-})
-const Setting = mongoose.models.Setting || mongoose.model("Setting", settingSchema);
-export default Setting
+
+
+    weightProvided: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    returnedWeight: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    weightLoss: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    diamondCategory: {
+      type: String,
+      required: true,
+    },
+
+    diamondSubCategory: {
+      type: String,
+      required: true,
+    },
+
+    diamondChildCategory: {
+      type: [String],
+      default: [],
+    },
+
+    // 🔥 MAIN PART
+    diamondDetails: {
+      type: Map,
+      of: [DiamondDimensionSchema],
+      default: {},
+    },
+
+    // 🔒 Track saved shapes
+    savedShapes: {
+      type: Map,
+      of: Boolean,
+      default: {},
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export default mongoose.model("Setting", ProductSettingSchema);

@@ -168,7 +168,7 @@ export const updateFiling = async (req, res) => {
         if (scrab !== 0) {
           filing.weightLoss = weightProvided - (returnedWeight + scrab);
         } else {
-          filing.weightLoss = weightProvided - extraMaterialWeight;
+          filing.weightLoss = weightProvided - returnedWeight;
         }
       }
 
