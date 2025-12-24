@@ -4,5 +4,6 @@ export const feature={
     profile:"profile",
     permissions:"permissions",
     product:"product",
-    designer:"designer"
+    designer:"designer",
+    master:"master"
 }
